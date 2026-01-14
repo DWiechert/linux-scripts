@@ -12,11 +12,17 @@ echo "  Ubuntu Server Automated Update"
 echo "  $(date)"
 echo "========================================"
 
-# Create Timeshift snapshot if available
-if command -v timeshift &> /dev/null; then
-    echo "=== Creating system snapshot ==="
-    sudo timeshift --create --comments "Auto update $(date +%Y-%m-%d)" --tags D --scripted
-fi
+# Create package list backup
+echo "=== Creating package list backup ==="
+BACKUP_DIR="$HOME/package-backups"
+mkdir -p "$BACKUP_DIR"
+BACKUP_FILE="$BACKUP_DIR/packages-$(date +%Y%m%d-%H%M%S).txt"
+dpkg --get-selections > "$BACKUP_FILE"
+echo "✓ Package list saved to: $BACKUP_FILE"
+
+# Keep only last 10 backups
+ls -t "$BACKUP_DIR"/packages-*.txt | tail -n +11 | xargs -r rm
+echo "✓ Old backups cleaned (keeping last 10)"
 
 # Update package lists
 echo "=== Updating package lists ==="
