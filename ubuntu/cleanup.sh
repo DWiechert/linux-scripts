@@ -53,10 +53,11 @@ if command -v docker &> /dev/null; then
     sudo docker system df || true
 fi
 
-# Clean Timeshift snapshots older than 30 days
-if command -v timeshift &> /dev/null; then
-    echo "=== Cleaning old Timeshift snapshots ==="
-    sudo timeshift --delete-all --older-than 30 --scripted || true
+# Clean old package backups (keep last 30)
+if [ -d "$HOME/package-backups" ]; then
+    echo "=== Cleaning old package backups ==="
+    find "$HOME/package-backups" -name "packages-*.txt" -type f -mtime +90 -delete || true
+    echo "✓ Old package backups cleaned (older than 90 days)"
 fi
 
 # Show disk usage
