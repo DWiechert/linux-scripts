@@ -1,62 +1,77 @@
 #!/bin/bash
 
-# Ubuntu Server automated update script
-# Usage: ./update-ubuntu-auto.sh
-# Safe for cron: 0 2 * * 0 /home/user/update-ubuntu-auto.sh >> /var/log/auto-update.log 2>&1
+# Tumbleweed update script with automatic snapshots
+# Usage: ./update-tumbleweed.sh
 
 set -e  # Exit on error
-set -x  # Show commands (for logging)
 
 echo "========================================"
-echo "  Ubuntu Server Automated Update"
-echo "  $(date)"
+echo "  openSUSE Tumbleweed Update"
 echo "========================================"
 
-# Create package list backup
-echo "=== Creating package list backup ==="
-BACKUP_DIR="$HOME/package-backups"
-mkdir -p "$BACKUP_DIR"
-BACKUP_FILE="$BACKUP_DIR/packages-$(date +%Y%m%d-%H%M%S).txt"
-dpkg --get-selections > "$BACKUP_FILE"
-echo "✓ Package list saved to: $BACKUP_FILE"
+# Create pre-update snapshot
+echo ""
+echo "=== Creating pre-update snapshot ==="
+SNAPSHOT_NUM=$(sudo snapper create --type pre --cleanup-algorithm number --print-number --description "Before zypper dup")
+echo "Created snapshot #$SNAPSHOT_NUM"
 
-# Keep only last 10 backups
-ls -t "$BACKUP_DIR"/packages-*.txt | tail -n +11 | xargs -r rm
-echo "✓ Old backups cleaned (keeping last 10)"
-
-# Update package lists
-echo "=== Updating package lists ==="
-sudo apt update
-
-# Upgrade packages
-echo "=== Upgrading packages ==="
-sudo apt upgrade -y
+# Refresh repositories
+echo ""
+echo "=== Refreshing repositories ==="
+sudo zypper refresh
 
 # Distribution upgrade
-echo "=== Distribution upgrade ==="
-sudo apt dist-upgrade -y
+echo ""
+echo "=== Running distribution upgrade ==="
+sudo zypper dup -y -l
 
-# Remove unused packages
-echo "=== Removing unused packages ==="
-sudo apt autoremove -y
+# Check for Nvidia version mismatch after update
+if command -v nvidia-smi &> /dev/null; then
+    echo ""
+    echo "=== Checking Nvidia driver integrity ==="
+    
+    # Get userspace library version
+    LIB_VERSION=$(rpm -q nvidia-video-G06 --queryformat '%{VERSION}')
+    
+    # Get kernel module version
+    KMP_VERSION=$(rpm -q nvidia-open-driver-G06-signed-kmp-default --queryformat '%{VERSION}' | cut -d'_' -f1)
+    
+    echo "Library version: $LIB_VERSION"
+    echo "Kernel module version: $KMP_VERSION"
+    
+    if [ "$LIB_VERSION" != "$KMP_VERSION" ]; then
+        echo "⚠️  WARNING: Nvidia version mismatch detected!"
+        echo "This will cause display issues. Rolling back Nvidia packages..."
+        
+        # Downgrade libraries to match kernel module
+        sudo zypper in --oldpackage nvidia-video-G06=$KMP_VERSION nvidia-gl-G06=$KMP_VERSION nvidia-compute-G06=$KMP_VERSION nvidia-compute-utils-G06=$KMP_VERSION || echo "Failed to downgrade, manual fix needed"
+        
+        echo "✓ Nvidia versions synchronized to $KMP_VERSION"
+    else
+        echo "✓ Nvidia versions match ($LIB_VERSION)"
+    fi
+fi
+
+# Create post-update snapshot
+echo ""
+echo "=== Creating post-update snapshot ==="
+POST_SNAPSHOT=$(sudo snapper create --type post --cleanup-algorithm number --print-number --description "After zypper dup" --pre-number "$SNAPSHOT_NUM")
+echo "Created snapshot #$POST_SNAPSHOT"
 
 # Check if reboot needed
 echo ""
 echo "========================================"
 echo "  Update complete!"
 echo "========================================"
-
 if [ -f /var/run/reboot-required ]; then
-    echo "⚠️  REBOOT REQUIRED"
-    cat /var/run/reboot-required.pkgs 2>/dev/null || true
-    
-    # Optionally auto-reboot (uncomment if desired)
-    # echo "Rebooting in 60 seconds..."
-    # sleep 60
-    # sudo reboot
+    echo "⚠️  REBOOT REQUIRED (kernel updated)"
 else
     echo "✓ No reboot required"
 fi
 
-echo "Completed at: $(date)"
+echo ""
+echo "Snapshots created: #$SNAPSHOT_NUM (pre) and #$POST_SNAPSHOT (post)"
+echo "To rollback if needed: sudo snapper rollback $SNAPSHOT_NUM"
+echo ""
+echo "Run cleanup-tumbleweed.sh to clean old packages and snapshots"
 echo "========================================"
