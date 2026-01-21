@@ -40,21 +40,26 @@ if command -v nvidia-smi &> /dev/null; then
         done
     done
     
-    if [ -n "$COMMON_VERSION" ]; then
-        echo "✓ Found common version: $COMMON_VERSION"
-        echo "Locking Nvidia packages to this version..."
-        
-        # Add version locks
-        sudo zypper al nvidia-video-G06-$COMMON_VERSION
-        sudo zypper al nvidia-gl-G06-$COMMON_VERSION
-        sudo zypper al nvidia-compute-G06-$COMMON_VERSION
-        sudo zypper al nvidia-compute-utils-G06-$COMMON_VERSION
-        sudo zypper al nvidia-open-driver-G06-signed-kmp-default
-        
-        echo "✓ Nvidia packages locked to $COMMON_VERSION"
-    else
-        echo "⚠️  No common version found, proceeding without locks"
+    if [ -z "$COMMON_VERSION" ]; then
+        echo "❌ No common version found!"
+        echo "Library and kernel module versions don't match in repositories."
+        echo "Skipping update. Please try again later when versions are synchronized."
+        echo ""
+        echo "To force update anyway (will break Nvidia), run: sudo zypper dup"
+        exit 1
     fi
+    
+    echo "✓ Found common version: $COMMON_VERSION"
+    echo "Locking Nvidia packages to this version..."
+    
+    # Add version locks
+    sudo zypper al nvidia-video-G06-$COMMON_VERSION
+    sudo zypper al nvidia-gl-G06-$COMMON_VERSION
+    sudo zypper al nvidia-compute-G06-$COMMON_VERSION
+    sudo zypper al nvidia-compute-utils-G06-$COMMON_VERSION
+    sudo zypper al nvidia-open-driver-G06-signed-kmp-default
+    
+    echo "✓ Nvidia packages locked to $COMMON_VERSION"
 fi
 
 # Distribution upgrade
