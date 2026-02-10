@@ -32,3 +32,8 @@ PROMPT="${NEWLINE}%K{#2E3440}%F{#E5E9F0}$(date +%_I:%M%P) %K{#3b4252}%F{#ECEFF4}
 #echo -e "${NEWLINE}\x1b[38;5;137m\x1b[48;5;0m it's$(print -P '%D{%_I:%M%P}\n') \x1b[38;5;180m\x1b[48;5;0m $(uptime -p | cut -c 4-) \x1b[38;5;223m\x1b[48;5;0m $(uname -r) \033[0m"
 
 export EDITOR="nvim"
+
+# Enable history search via ctrl+r
+#bindkey "^R" history-incremental-pattern-search-backward
+# Emacs mode - enable history, beginning of line, etc.
+bindkey -e
