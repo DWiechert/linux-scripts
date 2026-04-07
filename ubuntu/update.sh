@@ -40,6 +40,20 @@ sudo apt dist-upgrade -y
 echo "=== Removing unused packages ==="
 sudo apt autoremove -y
 
+# Check for network manager conflict (prevent boot hangs)
+echo ""
+echo "=== Checking for network configuration conflicts ==="
+if systemctl is-active --quiet systemd-networkd && systemctl is-active --quiet NetworkManager; then
+    echo "⚠  WARNING: Both systemd-networkd and NetworkManager are running!"
+    echo "This causes boot hangs with CIFS mounts. Disabling systemd-networkd..."
+    sudo systemctl stop systemd-networkd
+    sudo systemctl disable systemd-networkd
+    sudo systemctl mask systemd-networkd
+    echo "✓ systemd-networkd disabled"
+else
+    echo "✓ No network manager conflicts detected"
+fi
+
 # Check if reboot needed
 echo ""
 echo "========================================"
